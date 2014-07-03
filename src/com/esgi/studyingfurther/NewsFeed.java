@@ -1,101 +1,203 @@
+
 package com.esgi.studyingfurther;
 
-import android.os.Bundle;
-import android.app.Activity;
-import android.view.Menu;
+import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.concurrent.ExecutionException;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
-import android.widget.AdapterView;
 import android.widget.ListView;
-import android.widget.SimpleAdapter;
-import android.widget.AdapterView.OnItemClickListener;
+import android.widget.Toast;
+import android.widget.ToggleButton;
+
+import com.esgi.studyingfurther.bl.Post;
+import com.esgi.studyingfurther.dal.Repository;
+import com.esgi.studyingfurther.vm.CustomAdapter;
+import com.esgi.studyingfurther.vm.MainViewModel;
+
 public class NewsFeed extends Activity {
 
 	private ListView maListViewPerso;
+	private JSONObject currentUser;
+	MainViewModel Manager = null;
+	JSONArray news;
+	//ArrayList<JSONObject> comments;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_news_feed);
-		
-		 //R閏up閞ation de la listview cr殚e dans le fichier main.xml
-        maListViewPerso = (ListView) findViewById(R.id.listviewperso);
- 
-        //Cr閍tion de la ArrayList qui nous permettra de remplire la listView
-        ArrayList<HashMap<String, String>> listItem = new ArrayList<HashMap<String, String>>();
- 
-        //On d閏lare la HashMap qui contiendra les informations pour un item
-        HashMap<String, String> map;
- 
-        //Cr閍tion d'une HashMap pour ins閞er les informations du premier item de notre listView
-        map = new HashMap<String, String>();
-        //on ins鑢e un 閘閙ent titre que l'on r閏up閞era dans le textView titre cr殚 dans le fichier affichageitem.xml
-        map.put("titre", "Word");
-        //on ins鑢e un 閘閙ent description que l'on r閏up閞era dans le textView description cr殚 dans le fichier affichageitem.xml
-        map.put("description", "Editeur de texte");
-        //on ins鑢e la r閒閞ence � l'image (convertit en String car normalement c'est un int) que l'on r閏up閞era dans l'imageView cr殚 dans le fichier affichageitem.xml
-        map.put("img", String.valueOf(R.drawable.android));
-        //enfin on ajoute cette hashMap dans la arrayList
-        listItem.add(map);
- 
-        //On refait la manip plusieurs fois avec des donn閑s diff閞entes pour former les items de notre ListView
- 
-        map = new HashMap<String, String>();
-        map.put("titre", "Excel");
-        map.put("description", "Tableur");
-        map.put("img", String.valueOf(R.drawable.android));
-        listItem.add(map);
- 
-        map = new HashMap<String, String>();
-        map.put("titre", "Power Point");
-        map.put("description", "Logiciel de pr閟entation");
-        map.put("img", String.valueOf(R.drawable.android));
-        listItem.add(map);
- 
-        map = new HashMap<String, String>();
-        map.put("titre", "Outlook");
-        map.put("description", "Client de courrier 閘ectronique");
-        map.put("img", String.valueOf(R.drawable.android));
-        listItem.add(map);
- 
-        //Cr閍tion d'un SimpleAdapter qui se chargera de mettre les items pr閟ent dans notre list (listItem) dans la vue affichageitem
-        SimpleAdapter mSchedule = new SimpleAdapter (this.getBaseContext(), listItem, R.layout.activity_affichageitem,new String[] {"img", "titre", "description"}, new int[] {R.id.img, R.id.titre, R.id.description});
- 
-        //On attribut � notre listView l'adapter que l'on vient de cr閑r
-        maListViewPerso.setAdapter(mSchedule);
- 
-        //Enfin on met un 閏outeur d'関鑞ement sur notre listView
-        maListViewPerso.setOnItemClickListener(new OnItemClickListener() {
-			@Override
-        	@SuppressWarnings("unchecked")
-         	public void onItemClick(AdapterView<?> a, View v, int position, long id) {
-				//on r閏up鑢e la HashMap contenant les infos de notre item (titre, description, img)
-        		HashMap<String, String> map = (HashMap<String, String>) maListViewPerso.getItemAtPosition(position);
-        		//on cr閑r une boite de dialogue
-        		AlertDialog.Builder adb = new AlertDialog.Builder(NewsFeed.this);
-        		//on attribut un titre � notre boite de dialogue
-        		adb.setTitle("S閘ection Item");
-        		//on ins鑢e un message � notre boite de dialogue, et ici on affiche le titre de l'item cliqu�
-        		adb.setMessage("Votre choix : "+map.get("titre"));
-        		//on indique que l'on veut le bouton ok � notre boite de dialogue
-        		adb.setPositiveButton("Ok", null);
-        		//on affiche la boite de dialogue
-        		adb.show();
-        		Intent intent = new Intent(NewsFeed.this, AffichageItem.class);
-        		startActivity(intent);
-        	}
-        });
+		maListViewPerso = (ListView) findViewById(R.id.listviewperso);
+
+		if (MainViewModel.isNetworkAvailable(this)) {
+
+			try {
+
+				this.currentUser = new JSONObject(getIntent().getExtras().getString("currentUser"));
+
+				// Call a function getNews for fix all post of a current user
+				this.news = new Repository().getNews(this.currentUser.getInt("id"));
+				// Persistance for deconnect mode
+				android.content.SharedPreferences prefs = getSharedPreferences("news", 0);
+				android.content.SharedPreferences.Editor editor = prefs.edit();
+				editor.putString("news",this.news.toString());
+				editor.commit();
+				//
+				CustomAdapter adapter = new CustomAdapter(this,new Post().getPosts(this.news,this.currentUser.getInt("statut"),1));
+
+				maListViewPerso.setAdapter(adapter);
+
+			} catch (JSONException e) {
+
+			} catch (InterruptedException e) {
+
+			} catch (ExecutionException e) {
+
+			} catch (UnsupportedEncodingException e) {
+
+			}
+
+		} else {
+			MainViewModel.alertNetwork(this);
+			android.content.SharedPreferences prefs = getSharedPreferences("news", 0);
+		    String news = prefs.getString("news","");
+		    try {
+				this.news=new JSONArray(news);
+				android.content.SharedPreferences prefc = getSharedPreferences("UserData", 0);
+				String currentUser = prefc.getString("currentuser","");
+				this.currentUser = new JSONObject(currentUser);
+				CustomAdapter adapter=new CustomAdapter(this, new Post().getPosts(this.news, this.currentUser.getInt("statut"),0));
+			    maListViewPerso.setAdapter(adapter);	
+			
+			} catch (JSONException e) {
+				
+			} catch (UnsupportedEncodingException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (ExecutionException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		    
+		 
+		    /*	if(!news.isEmpty())
+		    	{
+		    		
+				
+				 
+			
+	         	CustomAdapter adapter = new CustomAdapter(this,new Post().getPosts(this.news,this.currentUser.getInt("statut")));
+				maListViewPerso.setAdapter(adapter);
+		    	}
+				*/
+			
+		}
+
 	}
 
+	/*
+	 * M�thode appel�e lors de la s�lection d'un �l�ment du menu
+	 * 
+	 * @param item
+	 */
+	/* Called whenever we call invalidateOptionsMenu() */
+	@Override
+	public boolean onOptionsItemSelected(MenuItem item) {
+	    // Handle item selection
+	//	write(item.getItemId()+": " +item.getOrder());
+	    switch (item.getOrder()) {
+	        case 1:
+	        	android.content.SharedPreferences prefs = getSharedPreferences("UserData", 0);
+				android.content.SharedPreferences.Editor editor = prefs.edit();
+				editor.putString("currentuser","");
+				editor.commit();
+				
+			    prefs = getSharedPreferences("news", 0);
+			    editor = prefs.edit();
+				editor.putString("news","");
+				
+	        	Intent intent = new Intent(this, Identification.class);
+				startActivity(intent);
+				
+	            return true;
+	        case 2:
+	            return true;
+	        default:
+	            return super.onOptionsItemSelected(item);
+	    }
+	}
+	
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		// Inflate the menu; this adds items to the action bar if it is present.
-		getMenuInflater().inflate(R.menu.news_feed, menu);
+		getMenuInflater().inflate(R.menu.main, menu);
 		return true;
+	}
+	@Override
+	public void onBackPressed() {
+		
+	};
+	
+	public void showDetailsPost(View v) throws JSONException, InterruptedException, ExecutionException {
+
+   
+	    Intent intent = new Intent(getBaseContext(), Comments.class);
+		intent.putExtra("news",this.news.getJSONObject(maListViewPerso.getPositionForView(v)).toString());
+		intent.putExtra("currentUser", this.currentUser.toString());
+		startActivity(intent);
+	}
+
+	public void plusun(View v) throws JSONException, InterruptedException,
+			ExecutionException {
+		JSONObject currentPost = this.news.getJSONObject(maListViewPerso.getPositionForView(v));
+
+		// Is the toggle on?
+
+		boolean on = ((ToggleButton) v).isChecked();
+
+		if (on) {
+			// Remove plus one
+			if (Post.removePlusOne(this.currentUser.getInt("id"),
+					currentPost.getInt("id")).equals("86")) 
+			{
+				Toast.makeText(this,"Your plus one is successfully added",Toast.LENGTH_LONG).show();
+			} 
+			else {
+				Toast.makeText(this,"Sorry:Error",Toast.LENGTH_LONG).show();
+				
+			}
+			// ************
+		} else {
+			// Add plus one
+			if (Post.addPlusOne(this.currentUser.getInt("id"),
+					currentPost.getInt("id")).equals("86")) {
+				Toast.makeText(this,"Your plus one is successfully removed",Toast.LENGTH_LONG).show();
+			} else {
+				Toast.makeText(this,"Sorry:Error",Toast.LENGTH_LONG).show();
+			}
+		}
+
+	}
+
+	public void alert(String value) {
+		AlertDialog.Builder adb = new AlertDialog.Builder(this);
+		adb.setTitle("Log");
+		adb.setMessage(value);
+		adb.setPositiveButton("Ok", null);
+		adb.show();
 	}
 
 }
